@@ -16,7 +16,8 @@
 #include <ArduPID.h>
 #include <math.h>
 #include <PID_Eeprom.h>
-#include <SerialCommands.h>
+#include <Serial_cmd.h>
+
 
 
 //==========================ANALOG PINS============================================
@@ -27,9 +28,9 @@ int PHASE3_AI_Pin = PIN_A1;              // AT328P_PIN_26
 //=================================================================================
 
 //===============================DIGITAL PINS======================================
-int RELAY1_PIN = PIN_A1;              // AT328P_PIN_
-int RELAY2_PIN = PIN_A1;              // AT328P_PIN_
-int RELAY3_PIN = PIN_A1;              // AT328P_PIN_
+int RELAY1_PIN = PIN_PB0;              // AT328P_PIN_
+int RELAY2_PIN = PIN_PB1;              // AT328P_PIN_
+int RELAY3_PIN = PIN_PB2;              // AT328P_PIN_
 //=================================================================================
 
 //=============================PWM PINS============================================
@@ -103,13 +104,22 @@ double  D = 0.5;
 FireTimer EEPROM_Timer;
 //=================================================================================
 
-//=========================SERIAL COMMANDS=========================================
-char serial_command_buffer_[32];
-SerialCommands serial_commands_(&Serial, serial_command_buffer_, sizeof(serial_command_buffer_), "\r", " ");     // "\r\n", " ");
-bool DEBUG_ON = false;
-//=================================================================================
 
 
+void SET_RELAY1(bool STATE)
+{
+    digitalWrite(RELAY1_PIN, STATE);
+}
+
+void SET_RELAY2(bool STATE)
+{
+    digitalWrite(RELAY2_PIN, STATE);
+}
+
+void SET_RELAY3(bool STATE)
+{
+    digitalWrite(RELAY3_PIN, STATE);
+}
 
 
 //==========================================
@@ -177,18 +187,9 @@ void Process_ATOD()
 //==========================================
 void Process_LEDS()
 {
-    if (ledState == LOW) 
-    {
-        ledState = HIGH;
-         Serial.println("LED: ON");
-    }
-    else 
-    {
-        ledState = LOW;
-        Serial.println("LED: OFF");
-    }
+    if (ledState == LOW)    {   ledState = HIGH;    }
+    else                    {   ledState = LOW;     }
     digitalWrite(ledPin, ledState);
-   
 }
 
 
@@ -418,21 +419,21 @@ void Process_EEPROM()
         dtostrf(P,4,1,SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, "] ");
-       // Serial.print(SERIAL_BUFFER1);
+        Serial.print(SERIAL_BUFFER1);
 
         strcpy(SERIAL_BUFFER1," [");
         strcat(SERIAL_BUFFER1, "I:=");
         dtostrf(I,4,1,SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, "] ");
-       // Serial.print(SERIAL_BUFFER1);
+        Serial.print(SERIAL_BUFFER1);
 
         strcpy(SERIAL_BUFFER1," [");
         strcat(SERIAL_BUFFER1, "D:=");
         dtostrf(D,4,1,SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, SERIAL_BUFFER2);
         strcat(SERIAL_BUFFER1, "] ");
-       // Serial.println(SERIAL_BUFFER1);
+        Serial.println(SERIAL_BUFFER1);
 
     }
 }
@@ -473,99 +474,15 @@ void Process_Scratch_Pad()
 
 
 
-
-
-
-
-
-//==================================================================
-//                  SERIAL CMD - UNKNOWN COMMAND
-//==================================================================
-void CMD_Unknown(SerialCommands* sender, const char* cmd)
-{
-	sender->GetSerial()->print("Unknown Command [");
-	sender->GetSerial()->print(cmd);
-	sender->GetSerial()->println("]");
-}
-
-
-
-//==================================================================
-//                   SERIAL CMD - CMD_DEBUG
-//==================================================================
-void CMD_Debug(SerialCommands* sender)
-{
-	//Note: Every call to Next moves the pointer to next parameter
-
-	char* Action = sender->Next();
-	if (Action == NULL)
-	{
-		sender->GetSerial()->println("Please Specify 'DEBUG ON' or 'DEBUG OFF'");
-		return;
-	}
-	
-	if (strcmp(Action, "ON") == 0)
-	{
-		DEBUG_ON = true;
-        sender->GetSerial()->println("DEBUG is ON");   
-	}
-	else if (strcmp(Action, "OFF") == 0)
-	{
-		DEBUG_ON = false;
-        sender->GetSerial()->println("DEBUG is OFF");
-	}
-    else
-    {
-		sender->GetSerial()->println("Please Specify 'DEBUG ON' or 'DEBUG OFF'");
-		return;
-    }
-}
-
-
-
-
-
-
-
-
-
-
-//==================================================================
-//                   PROCESS SERIAL COMMANDS
-//==================================================================
-void Process_Serial_Commands()
-{
-    serial_commands_.ReadSerial();
-}
-
-
-SerialCommand CMD_Debug_("DEBUG", CMD_Debug);
-
-
-//==================================================================
-//                   SETUP SERIAL COMMANDS
-//==================================================================
-void Setup_Serial_Commands()
-{
-    serial_commands_.SetDefaultHandler(CMD_Unknown);
-	serial_commands_.AddCommand(&CMD_Debug_);
-    Serial.println("Ready!");
-}
-
-
-
-
-
-
 //==================================================================
 //                   EEPROM REOUTINES
 //==================================================================
 void Setup_EEPROM()
 {
-    EEPROM_Timer.begin(1000);
+   EEPROM_Timer.begin(1000);
     //writetoEEPROM(1.0,2.0,3.0);
     //writetoEEPROM(P,I,D);
-    recoverPIDfromEEPROM(P,I,D);
+    //recoverPIDfromEEPROM(P,I,D);
    
 
 
@@ -575,10 +492,14 @@ void Setup_EEPROM()
 
 
 
-
-
-
-
+void Setup_PIN_Modes()
+{
+    pinMode(ledPin, OUTPUT);
+    pinMode(PWM_Pin, OUTPUT);
+    pinMode(RELAY1_PIN, OUTPUT);
+    pinMode(RELAY2_PIN, OUTPUT);
+    pinMode(RELAY3_PIN, OUTPUT); 
+}
 
 
 //====================================
@@ -588,10 +509,10 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println("[CPU RESET DETECTED]");
-  pinMode(ledPin, OUTPUT);
-  pinMode(PWM_Pin, OUTPUT);
-  Setup_EEPROM();
+
+  Setup_PIN_Modes();
   Setup_FireTimer();
+  Setup_EEPROM();
   Setup_PID();
   Setup_Serial_Commands();
 }
@@ -605,9 +526,9 @@ void loop()
   // Process_ATOD();
    Capture_Manual_Setpoint();
    Process_VOLTAGE();
-   Process_EEPROM();
+  // Process_EEPROM();
    Process_Serial_Commands();
-   Process_Scratch_Pad();
+ //  Process_Scratch_Pad();
 }
 
 
